@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+  <title>CSScribe · HTML/CSS Compiler to PDF</title>
+  <!-- html2pdf.js from CDN (lightweight, reliable) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" integrity="sha512-GsLlZN/3F2ErC5ifS5QtgpiJtWd43JWSuIgh7mbzZ8zBps+dvLusV+eNQATqgA/HdeKFVgA5v3S/cIrLF7QnIg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <!-- Font Awesome 6 (free icons) -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: linear-gradient(145deg, #e0eaf4 0%, #cfdef3 100%);
+      font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+      min-height: 100vh;
+      padding: 2rem 1.5rem;
+    }
+
+    /* modern glassmorphism container */
+    .app-container {
+      max-width: 1600px;
+      margin: 0 auto;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+
+    .header h1 {
+      font-size: 2.2rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #1A2A3F, #2C3E66);
+      background-clip: text;
+      -webkit-background-clip: text;
+      color: transparent;
+      letter-spacing: -0.3px;
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .header h1 i {
+      background: none;
+      color: #2c3e66;
+      font-size: 2rem;
+    }
+
+    .sub {
+      color: #2c3e66cc;
+      margin-top: 8px;
+      font-weight: 500;
+    }
+
+    /* main two-column layout */
+    .compiler-panel {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 24px;
+    }
+
+    .editor-area {
+      flex: 1.2;
+      min-width: 320px;
+      background: rgba(255,255,255,0.4);
+      backdrop-filter: blur(2px);
+      border-radius: 32px;
+      padding: 20px;
+      box-shadow: 0 20px 35px -12px rgba(0,0,0,0.2);
+    }
+
+    .preview-area {
+      flex: 1;
+      min-width: 360px;
+      background: rgba(255,255,255,0.4);
+      backdrop-filter: blur(2px);
+      border-radius: 32px;
+      padding: 20px;
+      box-shadow: 0 20px 35px -12px rgba(0,0,0,0.2);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .code-section {
+      background: #1e2a36;
+      border-radius: 24px;
+      padding: 6px;
+      margin-bottom: 24px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+    }
+
+    .code-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 18px;
+      background: #0f1720;
+      border-radius: 20px 20px 0 0;
+      color: #cbd5e6;
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+
+    .code-header i {
+      margin-right: 8px;
+    }
+
+    .btn-clear {
+      background: #334155;
+      border: none;
+      color: white;
+      padding: 6px 12px;
+      border-radius: 40px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: 0.2s;
+      font-weight: 500;
+    }
+
+    .btn-clear:hover {
+      background: #475569;
+      transform: scale(0.96);
+    }
+
+    textarea {
+      width: 100%;
+      background: #0f1720;
+      border: none;
+      color: #e2e8f0;
+      font-family: 'Fira Code', 'Cascadia Code', monospace;
+      font-size: 13px;
+      padding: 18px;
+      resize: vertical;
+      border-radius: 0 0 20px 20px;
+      outline: none;
+      line-height: 1.5;
+      tab-size: 4;
+    }
+
+    textarea:focus {
+      outline: 2px solid #4f9fff;
+      background: #11181f;
+    }
+
+    .preview-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 18px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .preview-header h3 {
+      font-weight: 700;
+      color: #1e2a3a;
+      background: #ffffffaa;
+      padding: 6px 16px;
+      border-radius: 60px;
+      backdrop-filter: blur(4px);
+    }
+
+    .action-buttons {
+      display: flex;
+      gap: 12px;
+    }
+
+    .btn-pdf {
+      background: #bc3f2e;
+      border: none;
+      color: white;
+      font-weight: 600;
+      padding: 10px 20px;
+      border-radius: 48px;
+      cursor: pointer;
+      transition: 0.2s;
+      font-size: 0.9rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+
+    .btn-pdf:hover {
+      background: #9b2f1f;
+      transform: translateY(-2px);
+    }
+
+    .btn-reset {
+      background: #2c3e50;
+      border: none;
+      color: white;
+      font-weight: 500;
+      padding: 10px 20px;
+      border-radius: 48px;
+      cursor: pointer;
+      transition: 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-reset:hover {
+      background: #1e2f3e;
+    }
+
+    /* live preview iframe */
+    .live-preview {
+      background: white;
+      border-radius: 24px;
+      box-shadow: 0 12px 28px rgba(0,0,0,0.15);
+      overflow: hidden;
+      flex: 1;
+      min-height: 420px;
+      border: 1px solid rgba(255,255,255,0.6);
+    }
+
+    iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+      background: white;
+    }
+
+    .info-tip {
+      margin-top: 16px;
+      font-size: 0.75rem;
+      text-align: center;
+      color: #2c3e66cc;
+      background: #f8fafc80;
+      padding: 6px;
+      border-radius: 60px;
+      width: fit-content;
+      align-self: center;
+    }
+
+    footer {
+      text-align: center;
+      margin-top: 2rem;
+      font-size: 0.75rem;
+      color: #1e2f3eaa;
+    }
+
+    @media (max-width: 780px) {
+      body { padding: 1rem; }
+      .editor-area, .preview-area { min-width: 280px; }
+      .btn-pdf, .btn-reset { padding: 6px 14px; font-size: 0.8rem; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="app-container">
+  <div class="header">
+    <h1><i class="fas fa-code"></i> CSScribe Studio</h1>
+    <div class="sub">write HTML/CSS → realtime preview → save as PDF (vector perfect)</div>
+  </div>
+
+  <div class="compiler-panel">
+    <!-- EDITOR COLUMN -->
+    <div class="editor-area">
+      <div class="code-section">
+        <div class="code-header">
+          <span><i class="fab fa-html5"></i> HTML structure</span>
+          <button class="btn-clear" id="clearHtmlBtn" title="Reset HTML to default demo"><i class="fas fa-undo-alt"></i> Reset HTML</button>
+        </div>
+        <textarea id="htmlEditor" rows="12" placeholder="Write your HTML markup here..."></textarea>
+      </div>
+      <div class="code-section">
+        <div class="code-header">
+          <span><i class="fab fa-css3-alt"></i> CSS styles</span>
+          <button class="btn-clear" id="clearCssBtn" title="Reset CSS to default demo"><i class="fas fa-undo-alt"></i> Reset CSS</button>
+        </div>
+        <textarea id="cssEditor" rows="8" placeholder="Write your CSS styles here..."></textarea>
+      </div>
+      <div class="info-tip">
+        <i class="fas fa-sync-alt"></i> Changes are instantly compiled → live preview updates
+      </div>
+    </div>
+
+    <!-- PREVIEW & PDF COLUMN -->
+    <div class="preview-area">
+      <div class="preview-header">
+        <h3><i class="fas fa-eye"></i> Live preview</h3>
+        <div class="action-buttons">
+          <button id="savePdfBtn" class="btn-pdf"><i class="fas fa-file-pdf"></i> Export as PDF</button>
+          <button id="resetFullBtn" class="btn-reset"><i class="fas fa-brush"></i> Full reset</button>
+        </div>
+      </div>
+      <div class="live-preview">
+        <iframe id="previewFrame" title="live HTML/CSS output" sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-modals"></iframe>
+      </div>
+      <div class="info-tip">
+        <i class="fas fa-download"></i> PDF preserves layout, fonts & styles — perfect for reports, resumes, or design mockups.
+      </div>
+    </div>
+  </div>
+  <footer>
+    <i class="fas fa-mug-hot"></i> 100% client-side · HTML/CSS compiler + PDF export · ready for GitHub Pages
+  </footer>
+</div>
+
+<script>
+  (function() {
+    // --- DOM elements ---
+    const htmlEditor = document.getElementById('htmlEditor');
+    const cssEditor = document.getElementById('cssEditor');
+    const previewFrame = document.getElementById('previewFrame');
+    const savePdfBtn = document.getElementById('savePdfBtn');
+    const clearHtmlBtn = document.getElementById('clearHtmlBtn');
+    const clearCssBtn = document.getElementById('clearCssBtn');
+    const resetFullBtn = document.getElementById('resetFullBtn');
+
+    // ---------- DEFAULT DEMO (modern, beautiful, responsive) ----------
+    const DEFAULT_HTML = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Live Demo | CSScribe</title>
+</head>
+<body>
+  <div class="card-container">
+    <div class="hero-card">
+      <div class="icon-badge">
+        <span>✨</span>
+      </div>
+      <h1>CSScribe Compiler</h1>
+      <p class="tagline">Write HTML & CSS, see instant preview, and export pixel-perfect PDFs</p>
+      <div class="feature-list">
+        <div class="feature">
+          <i>🎨</i> <span>Custom styles & animations</span>
+        </div>
+        <div class="feature">
+          <i>📄</i> <span>PDF vector export</span>
+        </div>
+        <div class="feature">
+          <i>⚡</i> <span>Live reload as you type</span>
+        </div>
+      </div>
+      <button class="demo-btn">interactive demo</button>
+      <p class="footnote">click "Export as PDF" → download full page</p>
+    </div>
+  </div>
+</body>
+</html>`;
+
+    const DEFAULT_CSS = `* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background: linear-gradient(145deg, #f5f7fe 0%, #eef2fa 100%);
+  font-family: 'Segoe UI', 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+
+.card-container {
+  max-width: 800px;
+  width: 100%;
+  animation: fadeSlideUp 0.6s ease-out;
+}
+
+.hero-card {
+  background: rgba(255,255,255,0.95);
+  backdrop-filter: blur(2px);
+  border-radius: 48px;
+  padding: 2.5rem 2rem;
+  box-shadow: 0 25px 45px -12px rgba(0,0,0,0.25);
+  text-align: center;
+  transition: transform 0.2s;
+  border: 1px solid rgba(255,255,255,0.6);
+}
+
+.hero-card:hover {
+  transform: scale(1.01);
+}
+
+.icon-badge {
+  font-size: 3.2rem;
+  background: #eef2ff;
+  width: 80px;
+  height: 80px;
+  border-radius: 60px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 8px 18px rgba(0,0,0,0.05);
+}
+
+h1 {
+  font-size: 2.4rem;
+  background: linear-gradient(135deg, #1F2A48, #2A3F6E);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  margin-bottom: 0.5rem;
+}
+
+.tagline {
+  color: #4a5b7a;
+  margin-bottom: 2rem;
+  font-size: 1rem;
+  font-weight: 500;
+  border-bottom: 2px dashed #cfdfed;
+  display: inline-block;
+  padding-bottom: 6px;
+}
+
+.feature-list {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 1.2rem;
+  margin: 2rem 0;
+}
+
+.feature {
+  background: #f0f4fa;
+  padding: 8px 18px;
+  border-radius: 100px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 500;
+  color: #1f2a48;
+}
+
+.demo-btn {
+  background: #1f2a48;
+  border: none;
+  color: white;
+  font-weight: 600;
+  padding: 12px 32px;
+  border-radius: 60px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: 0.2s;
+  margin-top: 0.5rem;
+  box-shadow: 0 6px 14px rgba(31,42,72,0.3);
+}
+
+.demo-btn:hover {
+  background: #2d3f66;
+  transform: translateY(-3px);
+}
+
+.footnote {
+  margin-top: 1.8rem;
+  font-size: 0.75rem;
+  color: #7c8aa5;
+}
+
+@keyframes fadeSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 600px) {
+  .hero-card { padding: 1.5rem; }
+  h1 { font-size: 1.7rem; }
+  .feature-list { gap: 0.8rem; }
+}`;
+
+    // Helper: generate full document from html + css
+    function buildFullDocument(htmlContent, cssContent) {
+      // We inject the user CSS into a <style> tag, preserving relative units and everything.
+      // Also we add a meta viewport for proper scaling on PDF & preview.
+      // We strip any existing <style> inside html? Actually we want clean combination.
+      // To avoid conflicts, we create a fresh document skeleton.
+      // If htmlContent already contains <html> or <body> tags? we need to be smart.
+      // For simplicity, we assume user may write partial HTML fragments or full doc.
+      // We'll use a robust approach: if html contains <body> or <html>, we embed as is, else we wrap.
+      let finalHtml = htmlContent.trim();
+      const hasBodyTag = /<body\s*>/i.test(finalHtml);
+      const hasHtmlTag = /<html\s*>/i.test(finalHtml);
+      
+      let wrappedDoc = '';
+      if (hasHtmlTag && hasBodyTag) {
+        // User gave full document, we just inject style inside head (or replace existing style)
+        // Ensure we add style block with user CSS, but avoid duplication.
+        // Better approach: inject style into head or override existing style tags.
+        // We'll manipulate via inserting style into head using regex? safer to create new DOMParser? 
+        // But we can build final string by injecting style if missing.
+        if (/<style\s*>[\s\S]*?<\/style>/i.test(finalHtml)) {
+          // replace existing style content with user CSS, but keep other styles?
+          // we replace all style tags with fresh one.
+          finalHtml = finalHtml.replace(/<style\s*>[\s\S]*?<\/style>/gi, `<style>${cssContent}</style>`);
+          wrappedDoc = finalHtml;
+        } else {
+          // inject before </head>
+          if (/<\/head>/i.test(finalHtml)) {
+            wrappedDoc = finalHtml.replace(/<\/head>/i, `<style>${cssContent}</style>\n</head>`);
+          } else {
+            wrappedDoc = finalHtml.replace(/<html/i, `<html><head><style>${cssContent}</style></head>`);
+          }
+        }
+      } else {
+        // Partial snippet: we build full modern HTML scaffold.
+        wrappedDoc = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+  <style>${cssContent}</style>
+</head>
+<body>
+  ${finalHtml}
+</body>
+</html>`;
+      }
+      // ensure any additional malformed situations: if wrappedDoc still missing style, we attach
+      if (!wrappedDoc.includes(`<style>${cssContent}</style>`) && !wrappedDoc.includes(`<style>`)) {
+        // fallback: insert before body
+        wrappedDoc = wrappedDoc.replace(/<body\s*>/i, `<body>\n<style>${cssContent}</style>`);
+      }
+      return wrappedDoc;
+    }
+
+    // Update iframe preview
+    let updateTimeout = null;
+    function updatePreview() {
+      const htmlCode = htmlEditor.value;
+      const cssCode = cssEditor.value;
+      const fullDoc = buildFullDocument(htmlCode, cssCode);
+      // write to iframe
+      const doc = previewFrame.contentWindow.document;
+      doc.open();
+      doc.write(fullDoc);
+      doc.close();
+    }
+
+    // debounced preview for smooth typing
+    function schedulePreview() {
+      if (updateTimeout) clearTimeout(updateTimeout);
+      updateTimeout = setTimeout(() => {
+        updatePreview();
+      }, 20);
+    }
+
+    // event listeners for editors
+    htmlEditor.addEventListener('input', schedulePreview);
+    cssEditor.addEventListener('input', schedulePreview);
+
+    // ----- RESET / CLEAR functions -----
+    function resetHtmlToDefault() {
+      htmlEditor.value = DEFAULT_HTML;
+      schedulePreview();
+    }
+    function resetCssToDefault() {
+      cssEditor.value = DEFAULT_CSS;
+      schedulePreview();
+    }
+    function fullReset() {
+      htmlEditor.value = DEFAULT_HTML;
+      cssEditor.value = DEFAULT_CSS;
+      schedulePreview();
+    }
+
+    clearHtmlBtn.addEventListener('click', resetHtmlToDefault);
+    clearCssBtn.addEventListener('click', resetCssToDefault);
+    resetFullBtn.addEventListener('click', fullReset);
+
+    // ----- PDF export using html2pdf (with high quality) -----
+    async function exportToPDF() {
+      // get the current rendered content from iframe's body element
+      const iframeDocument = previewFrame.contentWindow.document;
+      if (!iframeDocument || !iframeDocument.body) {
+        alert("Preview not ready, please wait a moment.");
+        return;
+      }
+      
+      // clone the entire iframe document to avoid affecting original live preview
+      const originalDoc = iframeDocument.cloneNode(true);
+      // we need to capture the root element for perfect export
+      // Use the documentElement (html) from cloned doc, but ensure styles are preserved
+      const containerForPdf = document.createElement('div');
+      // We'll take the <html> content of cloned document
+      const clonedHtml = originalDoc.documentElement;
+      if (!clonedHtml) {
+        // fallback: take body
+        const bodyContent = originalDoc.body;
+        if (bodyContent) containerForPdf.appendChild(bodyContent.cloneNode(true));
+        else containerForPdf.innerHTML = "<div>Error: empty preview</div>";
+      } else {
+        // clone the whole html structure, but we need to keep style & layout as it's rendered.
+        // Actually we can just use the entire iframe's documentElement as the source for PDF.
+        // However html2pdf expects a DOM element. We'll create a wrapper with the full copied <html>
+        const wrapper = document.createElement('div');
+        wrapper.appendChild(clonedHtml.cloneNode(true));
+        containerForPdf.appendChild(wrapper.firstChild);
+      }
+      
+      // better approach: directly use the iframe's body? For most accuracy, we capture the preview's body region
+      // but also include styles. Use html2pdf on the main iframe's root element inside a temporary container.
+      // Safer: capture the whole iframe's document body as the main content with full computed styles?
+      // html2pdf works well with any element. Let's use the iframe's document body, but we must ensure background and full width.
+      const bodyElement = iframeDocument.body;
+      if (!bodyElement) {
+        alert("Cannot export: preview iframe not ready");
+        return;
+      }
+      
+      // Clone body to preserve original styling + all children.
+      const cloneBody = bodyElement.cloneNode(true);
+      // Create a temporary container to hold styles and cloned body.
+      const tempContainer = document.createElement('div');
+      tempContainer.style.backgroundColor = getComputedStyle(bodyElement).backgroundColor || '#ffffff';
+      tempContainer.style.padding = '0px';
+      tempContainer.style.margin = '0px';
+      tempContainer.appendChild(cloneBody);
+      
+      // Also copy over all styles from the head of iframe (style nodes) into a new style block.
+      const headStyles = iframeDocument.head.querySelectorAll('style');
+      const styleCollector = document.createElement('style');
+      let aggregatedCSS = '';
+      headStyles.forEach(styleTag => {
+        aggregatedCSS += styleTag.innerHTML;
+      });
+      // also include any inline styles from user's CSS? already inside style tags.
+      if (aggregatedCSS) {
+        const masterStyle = document.createElement('style');
+        masterStyle.textContent = aggregatedCSS;
+        tempContainer.insertBefore(masterStyle, tempContainer.firstChild);
+      }
+      
+      // Ensure the container has proper dimensions for PDF
+      tempContainer.style.width = '100%';
+      tempContainer.style.maxWidth = '1200px';
+      tempContainer.style.margin = '0 auto';
+      tempContainer.style.boxSizing = 'border-box';
+      
+      // Options for pdf: high quality, page break aware, beautiful prints
+      const opt = {
+        margin:        [0.5, 0.5, 0.5, 0.5], // top, right, bottom, left in inches
+        filename:     `csscribe_export_${new Date().toISOString().slice(0,19).replace(/:/g, '-')}.pdf`,
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2, letterRendering: true, useCORS: false, logging: false },
+        jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
+      };
+      
+      try {
+        // Show a little loading hint (optional)
+        savePdfBtn.innerHTML = '<i class="fas fa-spinner fa-pulse"></i> Generating PDF...';
+        savePdfBtn.disabled = true;
+        await html2pdf().set(opt).from(tempContainer).save();
+      } catch (error) {
+        console.error("PDF export error: ", error);
+        alert("PDF export failed, but you can try again. Ensure content is valid.");
+      } finally {
+        savePdfBtn.innerHTML = '<i class="fas fa-file-pdf"></i> Export as PDF';
+        savePdfBtn.disabled = false;
+      }
+    }
+
+    savePdfBtn.addEventListener('click', exportToPDF);
+
+    // initial load with default demo content
+    htmlEditor.value = DEFAULT_HTML;
+    cssEditor.value = DEFAULT_CSS;
+    // force immediate preview after load
+    setTimeout(() => {
+      updatePreview();
+    }, 30);
+    
+    // additional resize safety for iframe
+    window.addEventListener('load', () => {
+      updatePreview();
+    });
+  })();
+</script>
+</body>
+  </html>
